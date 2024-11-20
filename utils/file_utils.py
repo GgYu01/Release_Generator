@@ -1,22 +1,20 @@
-# utils/file_utils.py
+# -*- coding: utf-8 -*-
+
 """
-File operation utility functions.
+Utility functions for file operations.
 """
 
-import os
-from utils.logger import get_logger
+import shutil
+from fastapi import UploadFile
+from utils.logger import logger
 
-logger = get_logger(__name__)
-
-
-def remove_file(file_path: str):
-    """
-    Removes a file if it exists.
-
-    :param file_path: Path to the file.
-    """
-    if os.path.isfile(file_path):
-        os.remove(file_path)
-        logger.info(f"Removed file: {file_path}")
-    else:
-        logger.warning(f"File not found: {file_path}")
+async def save_upload_file(upload_file: UploadFile, destination: str):
+    try:
+        with open(destination, 'wb') as buffer:
+            shutil.copyfileobj(upload_file.file, buffer)
+        logger.info(f"File saved to {destination}")
+    except Exception as e:
+        logger.error(f"Failed to save file {destination}: {e}")
+        raise
+    finally:
+        await upload_file.close()

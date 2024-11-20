@@ -1,54 +1,31 @@
-# api/task_manager.py
+# -*- coding: utf-8 -*-
+
 """
-Task management interfaces.
+FastAPI router for task management.
 """
 
-from fastapi import APIRouter, BackgroundTasks
-from tasks.task_executor import TaskExecutor
-from tasks.task_queue import task_queue
-from utils.logger import get_logger
+from fastapi import APIRouter
+from tasks.task_queue import TaskQueue
 
-logger = get_logger(__name__)
 router = APIRouter()
-executor = TaskExecutor()
+task_queue = TaskQueue()
 
-
-@router.post("/tasks/start")
+@router.post("/start")
 async def start_task():
-    """
-    Starts a new task.
-    """
-    task_id = executor.create_task()
-    logger.info(f"Started task with ID: {task_id}")
-    return {"task_id": task_id, "status": "Task started."}
+    task_id = task_queue.add_task()
+    return {"task_id": task_id}
 
+@router.get("/status/{task_id}")
+async def get_task_status(task_id: int):
+    status = task_queue.get_status(task_id)
+    return {"task_id": task_id, "status": status}
 
-@router.get("/tasks/status")
-async def get_tasks_status():
-    """
-    Retrieves the status of all tasks.
-    """
-    tasks_status = executor.get_tasks_status()
-    return tasks_status
+@router.post("/stop/{task_id}")
+async def stop_task(task_id: int):
+    result = task_queue.stop_task(task_id)
+    return {"task_id": task_id, "stopped": result}
 
-
-@router.post("/tasks/stop/{task_id}")
-async def stop_task(task_id: str):
-    """
-    Stops a running task.
-
-    :param task_id: ID of the task to stop.
-    """
-    result = executor.stop_task(task_id)
-    return result
-
-
-@router.delete("/tasks/delete/{task_id}")
-async def delete_task(task_id: str):
-    """
-    Deletes a task.
-
-    :param task_id: ID of the task to delete.
-    """
-    result = executor.delete_task(task_id)
-    return result
+@router.delete("/delete/{task_id}")
+async def delete_task(task_id: int):
+    result = task_queue.delete_task(task_id)
+    return {"task_id": task_id, "deleted": result}

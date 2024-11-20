@@ -1,83 +1,57 @@
-# tasks/task_executor.py
+# -*- coding: utf-8 -*-
+
 """
-Executes the task logic.
+Module for executing tasks related to the release note generation.
 """
 
-import threading
-import uuid
-from typing import Dict
+from utils.logger import logger
+from core.git_handler import GitHandler
+from core.manifest_parser import ManifestParser
+from core.commit_processor import CommitProcessor
+from core.patch_manager import PatchManager
 from core.release_note_writer import ReleaseNoteWriter
-from utils.logger import get_logger
-
-logger = get_logger(__name__)
-
+import openpyxl
+import os
 
 class TaskExecutor:
-    """
-    Executes tasks and manages their state.
-    """
+    def __init__(self, settings, git_handler: GitHandler, manifest_parser: ManifestParser, commit_processor: CommitProcessor, patch_manager: PatchManager, release_note_writer: ReleaseNoteWriter):
+        self.settings = settings
+        self.git_handler = git_handler
+        self.manifest_parser = manifest_parser
+        self.commit_processor = commit_processor
+        self.patch_manager = patch_manager
+        self.release_note_writer = release_note_writer
 
-    def __init__(self):
-        self.tasks = {}
-
-    def create_task(self) -> str:
+    def execute(self):
         """
-        Creates and starts a new task.
-
-        :return: Task ID.
+        Execute the task of generating release notes.
         """
-        task_id = str(uuid.uuid4())
-        task_thread = threading.Thread(target=self.execute_task, args=(task_id,))
-        self.tasks[task_id] = {"thread": task_thread, "status": "running"}
-        task_thread.start()
-        return task_id
+        logger.info("Starting task execution")
 
-    def execute_task(self, task_id: str):
-        """
-        Executes the task logic.
+        # Parse all repositories
+        repositories = self.manifest_parser.get_all_repositories()
 
-        :param task_id: ID of the task.
-        """
-        logger.info(f"Executing task {task_id}")
-        # Implement the task logic here
-        # For demonstration, we'll just sleep
-        import time
-        time.sleep(5)
-        self.tasks[task_id]["status"] = "completed"
-        logger.info(f"Task {task_id} completed.")
+        # Get latest and second latest tags from grt repository
+        latest_grt_tag, second_latest_grt_tag = self.git_handler.get_grt_tags()
 
-    def get_tasks_status(self) -> Dict[str, str]:
-        """
-        Gets the status of all tasks.
+        # Construct tags for all repositories based on grt tags
+        constructed_tags = {}
+        for repo_name, repo_path in repositories:
+            constructed_tag = self.git_handler.construct_tag_for_repo(latest_grt_tag, repo_path)
+            constructed_second_tag = self.git_handler.construct_tag_for_repo(second_latest_grt_tag, repo_path)
+            constructed_tags[repo_path] = (constructed_tag, constructed_second_tag)
+            logger.debug(f"Constructed tags for {repo_path}: {constructed_tag}, {constructed_second_tag}")
 
-        :return: Dictionary of task IDs and their statuses.
-        """
-        return {task_id: info["status"] for task_id, info in self.tasks.items()}
+        # Get all commits info
+        commits_info = self.commit_processor.get_all_commits_info(repositories, constructed_tag, constructed_second_tag)
 
-    def stop_task(self, task_id: str) -> Dict[str, str]:
-        """
-        Stops a running task.
+        # Generate patches and associate them with commits
+        patch_mapping = self.patch_manager.generate_and_associate_patches(repositories, constructed_tag, constructed_second_tag, commits_info)
 
-        :param task_id: ID of the task.
-        """
-        if task_id in self.tasks:
-            # Note: Stopping threads in Python is not straightforward.
-            # This is just a placeholder.
-            self.tasks[task_id]["status"] = "stopped"
-            logger.info(f"Task {task_id} stopped.")
-            return {"task_id": task_id, "status": "Task stopped."}
-        else:
-            return {"error": "Task not found."}
+        # Update release notes
+        self.release_note_writer.update_release_note(commits_info, latest_grt_tag, patch_mapping)
 
-    def delete_task(self, task_id: str) -> Dict[str, str]:
-        """
-        Deletes a task.
+        # Clean up patches
+        self.patch_manager.clean_patches(repositories)
 
-        :param task_id: ID of the task.
-        """
-        if task_id in self.tasks:
-            del self.tasks[task_id]
-            logger.info(f"Task {task_id} deleted.")
-            return {"task_id": task_id, "status": "Task deleted."}
-        else:
-            return {"error": "Task not found."}
+        logger.info("Task execution completed successfully")

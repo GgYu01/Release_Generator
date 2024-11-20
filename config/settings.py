@@ -1,63 +1,61 @@
-# config/settings.py
+# -*- coding: utf-8 -*-
+
 """
-Global configuration settings.
+Settings module containing all configuration parameters.
 """
 
+import os
 from dataclasses import dataclass, field
-from typing import List, Dict
-
 
 @dataclass
 class Settings:
-    """
-    Configuration settings for the release note generator.
-    """
-    # Paths
-    NEBULA_PATH: str = "/home/nebula/grpower/workspace/nebula/"
-    GRPOWER_PATH: str = "/home/nebula/grpower/"
-    GRT_PATH: str = "/home/nebula/grt/"
-    GRT_BE_PATH: str = "/home/nebula/grt_be/"
-    ALPS_PATH: str = "/home/nebula/alps/"
-    YOCTO_PATH: str = "/home/nebula/yocto/"
+    # General Paths
+    grpower_path: str = os.path.expanduser('~/grpower')
+    grt_path: str = os.path.expanduser('~/grt')
+    grt_be_path: str = os.path.expanduser('~/grt_be')
+    nebula_path: str = os.path.expanduser('~/grpower/workspace/nebula')
+    alps_path: str = os.path.expanduser('~/alps')
+    yocto_path: str = os.path.expanduser('~/yocto')
 
-    # Manifest files
-    NEBULA_MANIFEST: str = "manifest/cci/nebula-main"
-    ALPS_MANIFEST: str = ".repo/manifests/mt8678/grt/1001/alps.xml"
-    YOCTO_MANIFEST: str = ".repo/manifests/mt8678/grt/1001/yocto.xml"
+    # Manifest Paths
+    nebula_manifest: str = 'manifest/cci/nebula-main'
+    alps_manifest: str = '.repo/manifests/mt8678/grt/1001/alps.xml'
+    yocto_manifest: str = '.repo/manifests/mt8678/grt/1001/yocto.xml'
 
-    # FastAPI settings
-    API_HOST: str = "100.64.0.5"
-    API_PORT: int = 4151
+    # FastAPI Configuration
+    api_host: str = '100.64.0.5'
+    api_port: int = 4151
 
-    # Default values for release note columns
-    TEST_LEADER: str = "Test Leader"
-    MODIFIER: str = "Modifier"
-    MTK_OWNER: str = "MTK Owner"
-    SUBMISSION_TIME: str = "2024-11-20"
-    IS_PORTED: str = "No"
-    IS_TESTED: str = "No"
-    CUSTOMER_RELEASE: str = ""
-    CHANGE_ID: str = ""
-    MTK_MERGE_DATE: str = ""
-    MTK_REGISTRATION_STATUS: str = ""
+    # Default Values for Release Note Columns
+    tester: str = '高宇轩'
+    modifier: str = '武阳'
+    mtk_owner: str = '金春阳'
+    submission_time: str = '2024-11-20'
+    porting_required: str = 'No'
+    porting_status: str = 'N/A'
+    release_customer: str = ''
+    change_id: str = ''
+    mtk_merge_date: str = ''
+    mtk_registration_status: str = ''
 
-    # Repositories configuration
-    REPOSITORIES: List[Dict[str, str]] = field(default_factory=lambda: [
-        {"name": "nebula", "tool": "jiri", "path": "/home/nebula/grpower/workspace/nebula/"},
-        {"name": "grpower", "tool": "git", "path": "/home/nebula/grpower/"},
-        {"name": "grt", "tool": "git", "path": "/home/nebula/grt/"},
-        {"name": "grt_be", "tool": "git", "path": "/home/nebula/grt_be/"},
-        {"name": "alps", "tool": "repo", "path": "/home/nebula/alps/"},
-        {"name": "yocto", "tool": "repo", "path": "/home/nebula/yocto/"},
+    # Logger Configuration
+    log_file: str = 'release_note_generator.log'
+    log_level: str = 'DEBUG'
+
+    # Commit Message Filters
+    special_commit_filters: list = field(default_factory=lambda: [
+        '] thyp-sdk: ',
+        '] nebula-sdk: ',
+        '] tee: '
     ])
 
-    # Commit keywords for special handling
-    SPECIAL_COMMIT_KEYWORDS: List[str] = field(default_factory=lambda: [
-        "] thyp-sdk: ",
-        "] nebula-sdk: ",
-        "] tee: ",
-    ])
+    # Repository Paths for Column F
+    zircon_repo: str = os.path.expanduser('~/grpower/workspace/nebula/zircon')
+    garnet_repo: str = os.path.expanduser('~/grpower/workspace/nebula/garnet')
 
-    # Paths for zircon and garnet
-    ZIRCON_PATH: str = "/home/nebula/grpower/workspace/nebula/zircon"
-    GARNET_PATH: str = "/home/nebula/grpower/workspace/nebula/garnet"
+    def __post_init__(self):
+        # Ensure all paths are absolute
+        for attr in ['grpower_path', 'grt_path', 'grt_be_path', 'nebula_path', 'alps_path', 'yocto_path', 'zircon_repo', 'garnet_repo']:
+            path = getattr(self, attr)
+            if not os.path.isabs(path):
+                setattr(self, attr, os.path.abspath(path))

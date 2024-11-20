@@ -1,33 +1,62 @@
-# core/commit_processor.py
+# -*- coding: utf-8 -*-
+
 """
-Commit information processing module to parse updates between two tags.
+Module for processing commit information between two tags.
 """
 
+import os
+from utils.logger import logger
+from core.git_handler import GitHandler
+from core.manifest_parser import ManifestParser
 from typing import List, Dict
-from config import settings
-from utils.logger import get_logger
-
-logger = get_logger(__name__)
-
 
 class CommitProcessor:
-    """
-    Processes commit information between two tags.
-    """
+    def __init__(self, settings, git_handler: GitHandler, manifest_parser: ManifestParser):
+        self.settings = settings
+        self.git_handler = git_handler
+        self.manifest_parser = manifest_parser
 
-    def __init__(self):
-        self.special_keywords = settings.SPECIAL_COMMIT_KEYWORDS
-
-    def filter_special_commits(self, commits: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    def get_all_commits_info(self, repositories: List[tuple], latest_tag: str, second_latest_tag: str) -> List[Dict]:
         """
-        Filters commits containing special keywords.
-
-        :param commits: List of commit dictionaries.
-        :return: Filtered list of commits.
+        Get commit messages and hashes between two tags for all repositories,
+        excluding commits with special messages in specific paths.
         """
-        filtered_commits = []
-        for commit in commits:
-            if any(keyword in commit['message'] for keyword in self.special_keywords):
-                filtered_commits.append(commit)
-        logger.info(f"Filtered {len(filtered_commits)} special commits")
-        return filtered_commits
+        all_commits_info = []
+        for repo_name, repo_path in repositories:
+            logger.info(f"Processing repository: {repo_name} at {repo_path}")
+            commits = self.git_handler.get_commits_between_tags(repo_path, second_latest_tag, latest_tag)
+            for commit_hash in commits:
+                message = self.git_handler.get_commit_message(repo_path, commit_hash)
+                # Check for special commit messages in specific paths
+                if self._is_special_commit(repo_path, message):
+                    logger.debug(f"Excluded commit {commit_hash} with message: {message}")
+                    # Associate patch to nebula and grpower if needed
+                    all_commits_info.append({
+                        'hash': commit_hash,
+                        'message': message,
+                        'repo': repo_name,
+                        'is_special': True
+                    })
+                else:
+                    all_commits_info.append({
+                        'hash': commit_hash,
+                        'message': message,
+                        'repo': repo_name,
+                        'is_special': False
+                    })
+        logger.info(f"Total commits collected: {len(all_commits_info)}")
+        return all_commits_info
+
+    def _is_special_commit(self, repo_path: str, message: str) -> bool:
+        """
+        Determine if a commit message contains any special filters.
+        """
+        special_paths = [
+            self.settings.grt_path,
+            os.path.join(self.settings.alps_path, 'vendor/mediatek/proprietary/trustzone/grt')
+        ]
+        if repo_path in special_paths:
+            for filter_str in self.settings.special_commit_filters:
+                if filter_str in message:
+                    return True
+        return False

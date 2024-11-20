@@ -1,19 +1,21 @@
-# utils/exception_handler.py
+# -*- coding: utf-8 -*-
+
 """
-Exception handling module.
+Custom exception classes for the Release Note Generator script.
 """
 
-import traceback
-from utils.logger import get_logger
+class GitOperationException(Exception):
+    """Exception raised for errors in Git operations."""
+    pass
 
-logger = get_logger(__name__)
+class ManifestParseException(Exception):
+    """Exception raised for errors in manifest parsing."""
+    pass
 
+class PatchManagementException(Exception):
+    """Exception raised for errors in patch management."""
+    pass
 
-def handle_exception(e: Exception):
-    """
-    Logs the exception traceback.
-
-    :param e: Exception instance.
-    """
-    logger.error(f"An exception occurred: {e}")
-    logger.error(traceback.format_exc())
+class ReleaseNoteException(Exception):
+    """Exception raised for errors in release note generation."""
+    pass
