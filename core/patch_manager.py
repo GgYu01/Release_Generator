@@ -7,7 +7,7 @@ Module for managing patch files.
 import os
 from utils.logger import logger
 from utils.exception_handler import PatchManagementException
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from core.git_handler import GitHandler
 from core.manifest_parser import ManifestParser
 
@@ -17,29 +17,35 @@ class PatchManager:
         self.git_handler = git_handler
         self.manifest_parser = manifest_parser
 
-    def generate_and_associate_patches(self, repositories: List[tuple], latest_tag: str, second_latest_tag: str, commits_info: List[Dict]) -> Dict[str, List[str]]:
+    def generate_and_associate_patches(self, repositories: List[tuple], constructed_tags: Dict[str, Tuple[str, str]], commits_info: List[Dict]) -> Dict[str, List[str]]:
         """
         Generate patches and associate them with commits.
         Returns a dictionary mapping commit hashes to their patch file paths.
         """
         patch_mapping = {}
         for repo_name, repo_path in repositories:
-            logger.info(f"Generating patches for repository: {repo_name} at {repo_path}")
+            if repo_path not in constructed_tags:
+                logger.warning(f"No tags constructed for repository {repo_path}. Skipping patch generation.")
+                continue
+            latest_tag, second_latest_tag = constructed_tags[repo_path]
+            logger.info(f"Generating patches for repository: {repo_name} at {repo_path} between {second_latest_tag} and {latest_tag}")
             try:
                 patches = self.git_handler.generate_patches(repo_path, second_latest_tag, latest_tag)
                 for patch in patches:
                     commit_hash = self._extract_commit_hash_from_patch(patch, repo_path)
                     if commit_hash:
-                        # Check if this commit is marked as special
+                        # 查找对应的提交信息
                         commit_info = next((c for c in commits_info if c['hash'] == commit_hash), None)
-                        if commit_info and commit_info['is_special']:
-                            # Associate with nebula and grpower
-                            patch_mapping.setdefault('nebula', []).append(patch)
-                            patch_mapping.setdefault('grpower', []).append(patch)
-                        else:
-                            patch_mapping.setdefault(commit_hash, []).append(patch)
+                        if commit_info:
+                            if commit_info['is_special']:
+                                # 关联到 nebula 和 grpower
+                                patch_mapping.setdefault('nebula', []).append(patch)
+                                patch_mapping.setdefault('grpower', []).append(patch)
+                            else:
+                                patch_mapping.setdefault(commit_hash, []).append(patch)
             except PatchManagementException as e:
                 logger.error(f"Error generating patches for {repo_name}: {e}")
+                continue
         logger.info(f"Total patches generated and associated: {len(patch_mapping)}")
         return patch_mapping
 

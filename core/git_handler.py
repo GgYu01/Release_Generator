@@ -64,12 +64,22 @@ class GitHandler:
         # 判断仓库是否在nebula_path下
         if os.path.commonpath([repo_path, self.settings.nebula_path]) == self.settings.nebula_path:
             parts = base_tag.split('_')
-            if len(parts) >= 3 and parts[1].isdigit():
-                date_id = '_'.join(parts[1:])
-                return f"release-spm.mt8678_mt8676_{date_id}"
+            if 'mt8676' in base_tag:
+                # 标签格式为 release-spm.mt8678_mt8676_<年份>_<月日>_<编号>
+                if len(parts) >= 5:
+                    date_id = '_'.join(parts[2:])  # 包含年份
+                    return f"release-spm.mt8678_mt8676_{date_id}"
+                else:
+                    logger.warning(f"Tag format unexpected for repo {repo_path}. Using base tag.")
+                    return base_tag
             else:
-                logger.warning(f"Tag format unexpected for repo {repo_path}. Using base tag.")
-                return base_tag
+                # 标签格式为 release-spm.mt8678_<年份>_<月日>_<编号>
+                if len(parts) >= 4:
+                    date_id = '_'.join(parts[2:])
+                    return f"release-spm.mt8678_mt8676_{date_id}"
+                else:
+                    logger.warning(f"Tag format unexpected for repo {repo_path}. Using base tag.")
+                    return base_tag
         else:
             return base_tag
 
@@ -133,3 +143,34 @@ class GitHandler:
         except Exception as e:
             logger.error(f"Failed to get latest commit ID from {repo_path}: {e}")
             raise GitOperationException(f"Failed to get latest commit ID from {repo_path}")
+
+    def get_latest_tags_for_repo(self, repo_path: str) -> Tuple[str, str]:
+        """
+        Get the latest and second latest tags for a repository based on its tag pattern.
+        """
+        if os.path.commonpath([repo_path, self.settings.nebula_path]) == self.settings.nebula_path:
+            # nebula sub-repository tag pattern
+            tag_pattern = 'release-spm.mt8678_mt8676_*'
+            pattern = re.compile(r'release-spm\.mt8678_mt8676_\d{4}_\d{4}_\d{2}')
+        else:
+            # other repositories tag pattern
+            tag_pattern = 'release-spm.mt8678_*'
+            pattern = re.compile(r'release-spm\.mt8678_\d{4}_\d{4}_\d{2}')
+
+        try:
+            cmd = ['git', 'tag', '--list', tag_pattern]
+            tags = subprocess.check_output(cmd, cwd=repo_path).decode().splitlines()
+            # Filter tags that match the expected pattern
+            filtered_tags = [tag for tag in tags if pattern.match(tag)]
+            if len(filtered_tags) < 2:
+                logger.error(f"Not enough tags found in repository {repo_path}.")
+                raise GitOperationException(f"Not enough tags found in repository {repo_path}.")
+            # Sort tags based on date identifier
+            tags_sorted = sorted(filtered_tags, key=self._tag_sort_key, reverse=True)
+            latest_tag = tags_sorted[0]
+            second_latest_tag = tags_sorted[1]
+            logger.info(f"Latest tags in {repo_path}: {latest_tag}, {second_latest_tag}")
+            return latest_tag, second_latest_tag
+        except Exception as e:
+            logger.error(f"Failed to get tags from repository {repo_path}: {e}")
+            raise GitOperationException(f"Failed to get tags from repository {repo_path}")

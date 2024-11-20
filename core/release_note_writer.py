@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 from utils.logger import logger
 from utils.exception_handler import ReleaseNoteException
 from core.git_handler import GitHandler
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import os
 
 class ReleaseNoteWriter:
@@ -46,12 +46,18 @@ class ReleaseNoteWriter:
         logger.debug(f"Inserted {num_rows} rows at position 2")
         return sheet
 
-    def fill_data(self, sheet, commits_info: List[Dict], latest_tag: str, patch_mapping: Dict[str, List[str]]):
+    def fill_data(self, sheet, commits_info: List[Dict], constructed_tags: Dict[str, Tuple[str, str]], patch_mapping: Dict[str, List[str]]):
         """
         Fill the Excel sheet with commit information.
         """
         row_num = 2
         for commit_info in commits_info:
+            repo_path = commit_info['repo']
+            if repo_path in constructed_tags:
+                latest_tag = constructed_tags[repo_path][0]
+            else:
+                latest_tag = "Unknown_Tag"
+
             if commit_info['is_special']:
                 # Associate patch with nebula and grpower
                 patch_paths = patch_mapping.get('nebula', []) + patch_mapping.get('grpower', [])
@@ -60,7 +66,7 @@ class ReleaseNoteWriter:
             else:
                 patch_paths = patch_mapping.get(commit_info['hash'], [])
                 formatted_patches = self._format_patch_paths(patch_paths)
-                module = self.determine_module(commit_info['repo'])
+                module = self.determine_module(repo_path)
 
             # Column F: Commit Info
             zircon_commit = self.git_handler.get_last_commit_id(self.settings.zircon_repo)
@@ -121,7 +127,7 @@ class ReleaseNoteWriter:
             logger.error(f"Failed to save Excel file: {e}")
             raise ReleaseNoteException("Failed to save Excel file")
 
-    def update_release_note(self, commits_info: List[Dict], latest_tag: str, patch_mapping: Dict[str, List[str]]):
+    def update_release_note(self, commits_info: List[Dict], constructed_tags: Dict[str, Tuple[str, str]], patch_mapping: Dict[str, List[str]]):
         """
         Update the release note Excel sheet with the provided commit information and patch mappings.
         """
@@ -129,7 +135,7 @@ class ReleaseNoteWriter:
             workbook = openpyxl.load_workbook(self.excel_file)
             num_commits = len(commits_info)
             sheet = self.insert_rows(workbook, num_commits)
-            self.fill_data(sheet, commits_info, latest_tag, patch_mapping)
+            self.fill_data(sheet, commits_info, constructed_tags, patch_mapping)
             self.save_excel(workbook)
         except Exception as e:
             logger.error(f"Failed to update release note: {e}")
