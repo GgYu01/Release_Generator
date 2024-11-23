@@ -1,8 +1,1 @@
-# config/__init__.py
-"""
-Configuration module initialization.
-"""
-
-from .settings import Settings
-
-settings = Settings()
+# This file is intentionally left blank to mark the config directory as a package.

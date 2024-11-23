@@ -1,61 +1,74 @@
-# -*- coding: utf-8 -*-
+# config/settings.py
 
-"""
-Settings module containing all configuration parameters.
-"""
-
-import os
 from dataclasses import dataclass, field
+from typing import List, Dict
+
 
 @dataclass
-class Settings:
-    # General Paths
-    grpower_path: str = os.path.expanduser('~/grpower')
-    grt_path: str = os.path.expanduser('~/grt')
-    grt_be_path: str = os.path.expanduser('~/grt_be')
-    nebula_path: str = os.path.expanduser('~/grpower/workspace/nebula')
-    alps_path: str = os.path.expanduser('~/alps')
-    yocto_path: str = os.path.expanduser('~/yocto')
+class RepositoryConfig:
+    """Data class to store repository configuration."""
+    name: str                  # Repository name, e.g., 'grpower', 'grt'
+    path: str                  # Absolute path to the repository
+    repo_type: str             # Type of repository: 'git', 'repo', 'jiri'
+    manifest_path: str = ''    # Path to the manifest file, if applicable
+    latest_tag: str = ''       # Latest Git tag
+    second_latest_tag: str = ''  # Second latest Git tag
 
-    # Manifest Paths
-    nebula_manifest: str = 'manifest/cci/nebula-main'
-    alps_manifest: str = '.repo/manifests/mt8678/grt/1001/alps.xml'
-    yocto_manifest: str = '.repo/manifests/mt8678/grt/1001/yocto.xml'
 
-    # FastAPI Configuration
-    api_host: str = '100.64.0.5'
-    api_port: int = 4151
+@dataclass
+class Config:
+    """Main configuration data class."""
+    # List of repository configurations
+    repositories: List[RepositoryConfig] = field(default_factory=list)
+    
+    # Logging configuration
+    log_level: str = 'INFO'
+    log_format: str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    
+    # Other configurations can be added here
+    # e.g., default values, API configurations, etc.
 
-    # Default Values for Release Note Columns
-    tester: str = '高宇轩'
-    modifier: str = '武阳'
-    mtk_owner: str = '金春阳'
-    submission_time: str = '2024-11-20'
-    porting_required: str = 'No'
-    porting_status: str = 'N/A'
-    release_customer: str = ''
-    change_id: str = ''
-    mtk_merge_date: str = ''
-    mtk_registration_status: str = ''
+    # Example default values for Release Note columns
+    default_test_leader: str = 'Test Leader Name'
+    default_modifier: str = 'Modifier Name'
+    default_mtk_owner: str = 'MTK Owner Name'
 
-    # Logger Configuration
-    log_file: str = 'release_note_generator.log'
-    log_level: str = 'DEBUG'
 
-    # Commit Message Filters
-    special_commit_filters: list = field(default_factory=lambda: [
-        '] thyp-sdk: ',
-        '] nebula-sdk: ',
-        '] tee: '
-    ])
-
-    # Repository Paths for Column F
-    zircon_repo: str = os.path.expanduser('~/grpower/workspace/nebula/zircon')
-    garnet_repo: str = os.path.expanduser('~/grpower/workspace/nebula/garnet')
-
-    def __post_init__(self):
-        # Ensure all paths are absolute
-        for attr in ['grpower_path', 'grt_path', 'grt_be_path', 'nebula_path', 'alps_path', 'yocto_path', 'zircon_repo', 'garnet_repo']:
-            path = getattr(self, attr)
-            if not os.path.isabs(path):
-                setattr(self, attr, os.path.abspath(path))
+# Initialize the configuration with repository details
+config = Config(
+    repositories=[
+        RepositoryConfig(
+            name='grpower',
+            path='/home/nebula/grpower',
+            repo_type='git'
+        ),
+        RepositoryConfig(
+            name='grt',
+            path='/home/nebula/grt',
+            repo_type='git'
+        ),
+        RepositoryConfig(
+            name='grt_be',
+            path='/home/nebula/grt_be',
+            repo_type='git'
+        ),
+        RepositoryConfig(
+            name='alps',
+            path='/home/nebula/alps',
+            repo_type='repo',
+            manifest_path='/home/nebula/alps/.repo/manifests/mt8678/grt/1001/alps.xml'
+        ),
+        RepositoryConfig(
+            name='yocto',
+            path='/home/nebula/yocto',
+            repo_type='repo',
+            manifest_path='/home/nebula/yocto/.repo/manifests/mt8678/grt/1001/yocto.xml'
+        ),
+        RepositoryConfig(
+            name='nebula',
+            path='/home/nebula/grpower/workspace/nebula',
+            repo_type='jiri',
+            manifest_path='/home/nebula/grpower/workspace/nebula/manifest/cci/nebula-main'
+        ),
+    ]
+)

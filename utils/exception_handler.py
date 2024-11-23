@@ -1,21 +1,32 @@
-# -*- coding: utf-8 -*-
+# utils/exception_handler.py
 
-"""
-Custom exception classes for the Release Note Generator script.
-"""
+class AppException(Exception):
+    """
+    Base exception class for application-specific exceptions.
 
-class GitOperationException(Exception):
-    """Exception raised for errors in Git operations."""
+    Attributes:
+        message (str): Human-readable message describing the exception.
+        error_code (int): Numeric error code associated with the exception.
+    """
+    def __init__(self, message: str, error_code: int = 0):
+        self.message = message
+        self.error_code = error_code
+        super().__init__(f"[Error {error_code}] {message}")
+
+
+class GitException(AppException):
+    """Exception raised for Git operation errors."""
     pass
 
-class ManifestParseException(Exception):
-    """Exception raised for errors in manifest parsing."""
+
+class ManifestException(AppException):
+    """Exception raised for Manifest parsing errors."""
     pass
 
-class PatchManagementException(Exception):
-    """Exception raised for errors in patch management."""
+
+class ConfigurationException(AppException):
+    """Exception raised for Configuration errors."""
     pass
 
-class ReleaseNoteException(Exception):
-    """Exception raised for errors in release note generation."""
-    pass
+
+# More specific exceptions can be defined as needed

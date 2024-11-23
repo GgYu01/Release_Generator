@@ -1,75 +1,67 @@
-# -*- coding: utf-8 -*-
-
-"""
-Module for parsing manifest files to extract repository information.
-"""
+# core/manifest_parser.py
 
 import os
 import xml.etree.ElementTree as ET
-from utils.logger import logger
-from utils.exception_handler import ManifestParseException
-from typing import List, Tuple
+from typing import List, Dict
+from utils.logger import get_logger
+from utils.exception_handler import ManifestException
+
+logger = get_logger(__name__)
+
 
 class ManifestParser:
-    def __init__(self, settings):
-        self.settings = settings
+    """
+    Class to parse manifest XML files and extract project information.
 
-    def parse_manifest(self, manifest_path: str) -> List[str]:
+    Attributes:
+        manifest_path (str): Path to the manifest XML file.
+        root (Element): Root element of the parsed XML tree.
+    """
+
+    def __init__(self, manifest_path: str):
         """
-        Parse a manifest XML file to get repository paths.
+        Initialize the ManifestParser with the manifest file path.
+
+        :param manifest_path: Absolute path to the manifest XML file.
+        :raises ManifestException: If the file does not exist or cannot be parsed.
+        """
+        self.manifest_path = manifest_path
+        if not os.path.exists(manifest_path):
+            logger.error(f"Manifest file does not exist: {manifest_path}")
+            raise ManifestException(f"Manifest file does not exist: {manifest_path}")
+        try:
+            tree = ET.parse(manifest_path)
+            self.root = tree.getroot()
+            logger.info(f"Parsed manifest file: {manifest_path}")
+        except ET.ParseError as e:
+            logger.error(f"Error parsing manifest file: {e}")
+            raise ManifestException(f"Error parsing manifest file: {e}") from e
+
+    def get_projects(self) -> List[Dict]:
+        """
+        Extract project information from the manifest file.
+
+        :return: List of dictionaries containing project details.
+        :raises ManifestException: If unable to extract project information.
         """
         try:
-            full_path = os.path.abspath(manifest_path)
-            if not os.path.exists(full_path):
-                logger.error(f"Manifest file does not exist: {full_path}")
-                return []
-            tree = ET.parse(full_path)
-            root = tree.getroot()
-            repo_list = []
-            for project in root.findall('.//project'):
-                repo_path = project.get('path')
-                if repo_path:
-                    repo_list.append(repo_path)
-            logger.info(f"Parsed {len(repo_list)} repositories from {manifest_path}")
-            return repo_list
+            projects = []
+            for project in self.root.findall('project'):
+                name = project.get('name')
+                path = project.get('path') or name
+                remote = project.get('remote')
+                revision = project.get('revision')
+                project_info = {
+                    'name': name,
+                    'path': path,
+                    'remote': remote,
+                    'revision': revision,
+                }
+                projects.append(project_info)
+            logger.debug(f"Extracted {len(projects)} projects from manifest")
+            return projects
         except Exception as e:
-            logger.error(f"Failed to parse manifest {manifest_path}: {e}")
-            raise ManifestParseException(f"Failed to parse manifest {manifest_path}")
+            logger.error(f"Error extracting projects from manifest: {e}")
+            raise ManifestException(f"Error extracting projects: {e}") from e
 
-    def get_all_repositories(self) -> List[Tuple[str, str]]:
-        """
-        Get all repositories and their absolute paths from manifests.
-        Returns a list of tuples containing (repository name, absolute path).
-        """
-        repositories = []
-
-        # Parse nebula manifest
-        nebula_manifest_path = os.path.join(self.settings.nebula_path, self.settings.nebula_manifest)
-        nebula_repos = self.parse_manifest(nebula_manifest_path)
-        repositories.extend([(repo, os.path.join(self.settings.nebula_path, repo)) for repo in nebula_repos])
-
-        # Parse alps manifest
-        alps_manifest_path = os.path.join(self.settings.alps_path, self.settings.alps_manifest)
-        alps_repos = self.parse_manifest(alps_manifest_path)
-        repositories.extend([(repo, os.path.join(self.settings.alps_path, repo)) for repo in alps_repos])
-
-        # Parse yocto manifest
-        yocto_manifest_path = os.path.join(self.settings.yocto_path, self.settings.yocto_manifest)
-        yocto_repos = self.parse_manifest(yocto_manifest_path)
-        repositories.extend([(repo, os.path.join(self.settings.yocto_path, repo)) for repo in yocto_repos])
-
-        # Add main repositories
-        main_repos = [
-            ('grpower', self.settings.grpower_path),
-            ('grt', self.settings.grt_path),
-            ('grt_be', self.settings.grt_be_path),
-            ('yocto', self.settings.yocto_path),
-            ('alps', self.settings.alps_path),
-            ('nebula', self.settings.nebula_path),
-        ]
-        repositories.extend(main_repos)
-
-        # Remove duplicates
-        unique_repos = list({repo[1]: repo for repo in repositories}.values())
-        logger.info(f"Total repositories to process: {len(unique_repos)}")
-        return unique_repos
+    # Additional methods for manifest parsing can be added here

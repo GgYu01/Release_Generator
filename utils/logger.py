@@ -1,29 +1,27 @@
-# -*- coding: utf-8 -*-
-
-"""
-Logging module for the Release Note Generator script.
-"""
+# utils/logger.py
 
 import logging
-from config.settings import Settings
+from config.settings import config
 
-def get_logger():
-    settings = Settings()
 
-    logger = logging.getLogger('ReleaseNoteGenerator')
-    logger.setLevel(getattr(logging, settings.log_level.upper(), 'INFO'))
+def setup_logger():
+    """
+    Set up the logging configuration based on settings in config.
+    """
+    log_level = getattr(logging, config.log_level.upper(), logging.INFO)
+    log_format = config.log_format
+    logging.basicConfig(level=log_level, format=log_format)
 
-    if not logger.handlers:
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-        file_handler = logging.FileHandler(settings.log_file)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+def get_logger(name: str) -> logging.Logger:
+    """
+    Get a logger instance with the specified name.
 
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+    :param name: Name of the logger, usually __name__
+    :return: Configured logger instance
+    """
+    return logging.getLogger(name)
 
-    return logger
 
-logger = get_logger()
+# Initialize the logger configuration when the module is imported
+setup_logger()

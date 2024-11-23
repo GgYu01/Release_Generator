@@ -1,14 +1,10 @@
-# utils/common.py
-"""
-Common utility functions.
-"""
+import os
+from typing import Any, Dict
 
-def format_commit_message(message: str) -> str:
-    """
-    Formats the commit message.
+def merge_dicts(dict1: Dict[Any, Any], dict2: Dict[Any, Any]) -> Dict[Any, Any]:
+    merged = dict1.copy()
+    merged.update(dict2)
+    return merged
 
-    :param message: Raw commit message.
-    :return: Formatted message.
-    """
-    # Implement any specific formatting if required
-    return message.strip()
+def sanitize_path(path: str) -> str:
+    return os.path.abspath(os.path.expanduser(path))

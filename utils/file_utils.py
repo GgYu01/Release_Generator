@@ -1,20 +1,17 @@
-# -*- coding: utf-8 -*-
+import os
+from typing import List
 
-"""
-Utility functions for file operations.
-"""
+def list_files(directory: str, extension: str = "") -> List[str]:
+    return [f for f in os.listdir(directory) if f.endswith(extension)]
 
-import shutil
-from fastapi import UploadFile
-from utils.logger import logger
+def read_file(file_path: str) -> str:
+    with open(file_path, 'r') as file:
+        return file.read()
 
-async def save_upload_file(upload_file: UploadFile, destination: str):
-    try:
-        with open(destination, 'wb') as buffer:
-            shutil.copyfileobj(upload_file.file, buffer)
-        logger.info(f"File saved to {destination}")
-    except Exception as e:
-        logger.error(f"Failed to save file {destination}: {e}")
-        raise
-    finally:
-        await upload_file.close()
+def write_file(file_path: str, content: str) -> None:
+    with open(file_path, 'w') as file:
+        file.write(content)
+
+def delete_file(file_path: str) -> None:
+    if os.path.exists(file_path):
+        os.remove(file_path)
