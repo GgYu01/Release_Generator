@@ -1,14 +1,20 @@
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 
 @dataclass
-class RepositoryConfig:
+class CommitInfo:
+    commit_id: str
+    message: str
+    patch_file: Optional[str] = None  # Add patch file path
+
+@dataclass
+class RepositoryInfo:
     name: str
     path: str
-    manifest: str
-    tag_prefix: str
-    remote: str = ''
-    remotebranch: str = ''
+    parent: Optional[str]
+    latest_tag: str
+    previous_tag: str
+    commits: List[CommitInfo] = field(default_factory=list)  # Updated to use CommitInfo
 
 @dataclass
 class RepositoryConfig:
@@ -37,13 +43,13 @@ class Settings:
             RepositoryConfig(
                 name='alps',
                 path='/home/nebula/alps',
-                manifest='/home/nebula/alps/.repo/manifests/mt8678/grt/1001/alps.xml',
+                manifest='/home/nebula/alps/.repo/manifests/mt8678/grt/1114/alps.xml',
                 tag_prefix='release-spm.mt8678_'
             ),
             RepositoryConfig(
                 name='yocto',
                 path='/home/nebula/yocto',
-                manifest='/home/nebula/yocto/.repo/manifests/mt8678/grt/1001/yocto.xml',
+                manifest='/home/nebula/yocto/.repo/manifests/mt8678/grt/1114/yocto.xml',
                 tag_prefix='release-spm.mt8678_'
             ),
             RepositoryConfig(

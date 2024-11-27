@@ -1,6 +1,6 @@
-from typing import List, Tuple
 import subprocess
 from pathlib import Path
+from typing import List, Dict, Tuple
 
 class GitHandler:
     def __init__(self, repo_path: str) -> None:
@@ -12,10 +12,24 @@ class GitHandler:
         tags = result.stdout.strip().split('\n')
         return (tags[0], tags[1]) if len(tags) >= 2 else (tags[0], None)
 
-    def get_commit_logs_between_tags(self, old_tag: str, new_tag: str) -> List[str]:
-        cmd = ['git', 'log', f'{old_tag}...{new_tag}', '--oneline']
-        result = subprocess.run(cmd, cwd=self.repo_path, stdout=subprocess.PIPE, text=True)
-        return result.stdout.strip().split('\n')
+    def get_commit_logs_between_tags(self, old_tag: str, new_tag: str) -> List[Dict[str, str]]:
+        cmd = [
+            'git', 'log', f'{old_tag}...{new_tag}',
+            '--format=%H%x01%B%x02', '--no-merges'
+        ]
+        result = subprocess.run(
+            cmd, cwd=self.repo_path, stdout=subprocess.PIPE, text=True
+        )
+        logs = []
+        entries = result.stdout.strip().split('\x02\n')
+        for entry in entries:
+            if entry:
+                parts = entry.strip().split('\x01', 1)
+                if len(parts) == 2:
+                    commit_id = parts[0]
+                    message = parts[1].strip()
+                    logs.append({'commit_id': commit_id, 'message': message})
+        return logs
 
     def fetch_tags(self) -> None:
         cmd = ['git', 'fetch', '--tags']
