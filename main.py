@@ -8,7 +8,48 @@ from utils.common import normalize_tag
 from rich.console import Console
 from rich.traceback import install
 import os
+import re
 from pathlib import Path
+
+class CommitAnalyzer:
+    def __init__(self) -> None:
+        self.logger = get_logger('CommitAnalyzer')
+        self.console = Console()
+        self.target_patch_path: str = ""  # Will store the specific patch path
+
+    def analyze_commits(self, repositories: List[RepositoryInfo]) -> None:
+        self.logger.info("Starting commit analysis")
+        self.console.log("[bold blue]Starting commit analysis[/bold blue]")
+
+        # First pass: find the specific patch we want to use
+        for repo in repositories:
+            self.logger.debug(f"Scanning repository: {repo.name}, Path: {repo.path}")
+            for commit in repo.commits:
+                if commit.patch_file and any(prefix in commit.message for prefix in ['] thyp-sdk: ', '] nebula-sdk: ', '] tee: ']):
+                    self.target_patch_path = commit.patch_file
+                    self.logger.debug(f"Found target patch path: {self.target_patch_path}")
+                    break
+            if self.target_patch_path:
+                break
+
+        # Second pass: force update all commits in target repositories
+        for repo in repositories:
+            self.logger.debug(f"Processing repository for updates: {repo.name}")
+            if repo.name in ['grpower', 'nebula'] or (repo.parent and repo.parent in ['grpower', 'nebula']):
+                self._force_update_patches(repo)
+
+    def _force_update_patches(self, repo: RepositoryInfo) -> None:
+        self.logger.info(f"Forcing patch updates for repository: {repo.name}")
+        self.console.log(f"[cyan]Repository: {repo.name}[/cyan]")
+
+        for commit in repo.commits:
+            self.logger.debug(f"Before update - Commit ID: {commit.commit_id}, Current patch: {commit.patch_file}")
+            commit.patch_file = self.target_patch_path
+            self.logger.debug(f"After update - Commit ID: {commit.commit_id}, Forced patch: {commit.patch_file}")
+            
+            # Console output for visibility
+            self.console.log(f"[yellow]Commit ID: {commit.commit_id}[/yellow]")
+            self.console.log(f"[green]Forced patch path: {commit.patch_file}[/green]")
 
 def main() -> None:
     install()  # Enable rich traceback
@@ -219,7 +260,7 @@ def main() -> None:
                                 CommitInfo(
                                     commit_id=commit['commit_id'],
                                     message=commit['message'],
-                                    patch_file=None
+                                    patch_file=''
                                 ) for commit in project_commits
                             ]
 
@@ -232,6 +273,19 @@ def main() -> None:
         else:
             console.log(f"No manifest found for {repo_config.name}")
             logger.warning(f"No manifest found for {repo_config.name}")
+
+    commit_analyzer = CommitAnalyzer()
+    commit_analyzer.analyze_commits(all_repositories_with_commits)
+
+    # Update the console output to show modified patch files
+    console.log("\n[bold yellow]Updated Repository Information:[/bold yellow]")
+    for repo_info in all_repositories_with_commits:
+        if repo_info.name in ['grpower', 'nebula'] or (repo_info.parent and repo_info.parent == 'nebula'):
+            console.log(f"\n[bold cyan]Repository: {repo_info.name}[/bold cyan]")
+            for commit in repo_info.commits:
+                if commit.patch_file:
+                    console.log(f"Commit ID: {commit.commit_id}")
+                    console.log(f"Updated Patch Files:\n{commit.patch_file}")
 
     # Output the repositories with commits in order
     for repo_info in all_repositories_with_commits:
