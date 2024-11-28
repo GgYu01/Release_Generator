@@ -43,13 +43,13 @@ class Settings:
             RepositoryConfig(
                 name='alps',
                 path='/home/nebula/alps',
-                manifest='/home/nebula/alps/.repo/manifests/mt8678/grt/1114/alps.xml',
+                manifest='/home/nebula/alps/.repo/manifests/mt8678/grt/1001/alps.xml',
                 tag_prefix='release-spm.mt8678_'
             ),
             RepositoryConfig(
                 name='yocto',
                 path='/home/nebula/yocto',
-                manifest='/home/nebula/yocto/.repo/manifests/mt8678/grt/1114/yocto.xml',
+                manifest='/home/nebula/yocto/.repo/manifests/mt8678/grt/1001/yocto.xml',
                 tag_prefix='release-spm.mt8678_'
             ),
             RepositoryConfig(

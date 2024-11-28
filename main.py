@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 from config.settings import settings, RepositoryInfo, CommitInfo
 from core.manifest_parser import ManifestParser
 from core.git_handler import GitHandler
@@ -8,9 +8,7 @@ from utils.common import normalize_tag
 from rich.console import Console
 from rich.traceback import install
 import os
-from pathlib import Path  # 确保导入了 Path
-
-# 省略其他代码...
+from pathlib import Path
 
 def main() -> None:
     install()  # Enable rich traceback
@@ -18,6 +16,7 @@ def main() -> None:
     logger = get_logger('Main')
 
     console.log("[bold green]Starting Release Note Generator[/bold green]")
+    logger.info("Starting Release Note Generator")
 
     # Get grt repository information
     grt_repo_config = next((repo for repo in settings.repositories if repo.name == 'grt'), None)
@@ -94,7 +93,7 @@ def main() -> None:
             if commits:
                 if generate_patches:
                     patch_manager = PatchManager(repo_path, previous_tag, latest_tag)
-                    patch_files = patch_manager.generate_patches(repo_path)  # 现在返回的是 Path 对象的列表
+                    patch_files = patch_manager.generate_patches(repo_path)
 
                     # Map commits to patches
                     commit_patch_map: Dict[str, str] = {}
@@ -192,7 +191,7 @@ def main() -> None:
                         if project_generate_patches:
                             # Proceed with generating patches
                             project_patch_manager = PatchManager(project_path, project_previous_tag, project_latest_tag)
-                            project_patch_files = project_patch_manager.generate_patches(project_path)  # 现在返回的是 Path 对象的列表
+                            project_patch_files = project_patch_manager.generate_patches(project_path)
 
                             # Map commits to patches
                             project_commit_patch_map: Dict[str, str] = {}
