@@ -15,23 +15,30 @@ class CommitAnalyzer:
     def __init__(self) -> None:
         self.logger = get_logger('CommitAnalyzer')
         self.console = Console()
-        self.target_patch_path: str = ""  # Will store the specific patch path
+        self.target_patch_paths: List[str] = []  # Store collected patch file paths
 
     def analyze_commits(self, repositories: List[RepositoryInfo]) -> None:
         self.logger.info("Starting commit analysis")
         self.console.log("[bold blue]Starting commit analysis[/bold blue]")
 
-        # First pass: find the specific patch we want to use
+        # Define prefixes to identify commits to remove
+        remove_prefixes: List[str] = ['] thyp-sdk: ', '] nebula-sdk: ', '] tee: ']
+        
+        # First pass: collect patch files from commits to remove
         for repo in repositories:
             self.logger.debug(f"Scanning repository: {repo.name}, Path: {repo.path}")
+            commits_to_remove: List[CommitInfo] = []
             for commit in repo.commits:
-                if commit.patch_file and any(prefix in commit.message for prefix in ['] thyp-sdk: ', '] nebula-sdk: ', '] tee: ']):
-                    self.target_patch_path = commit.patch_file
-                    self.logger.debug(f"Found target patch path: {self.target_patch_path}")
-                    break
-            if self.target_patch_path:
-                break
-
+                if any(prefix in commit.message for prefix in remove_prefixes):
+                    if commit.patch_file:
+                        self.target_patch_paths.append(commit.patch_file)
+                        self.logger.debug(f"Collected patch: {commit.patch_file} from commit: {commit.commit_id}")
+                    commits_to_remove.append(commit)
+            # Remove the commits from repo.commits
+            for commit in commits_to_remove:
+                repo.commits.remove(commit)
+                self.logger.debug(f"Removed commit: {commit.commit_id} from repository: {repo.name}")
+        
         # Second pass: force update all commits in target repositories
         for repo in repositories:
             self.logger.debug(f"Processing repository for updates: {repo.name}")
@@ -42,9 +49,12 @@ class CommitAnalyzer:
         self.logger.info(f"Forcing patch updates for repository: {repo.name}")
         self.console.log(f"[cyan]Repository: {repo.name}[/cyan]")
 
+        # Concatenate collected patch file paths
+        concatenated_patches: str = '\n'.join(self.target_patch_paths)
+
         for commit in repo.commits:
             self.logger.debug(f"Before update - Commit ID: {commit.commit_id}, Current patch: {commit.patch_file}")
-            commit.patch_file = self.target_patch_path
+            commit.patch_file = concatenated_patches
             self.logger.debug(f"After update - Commit ID: {commit.commit_id}, Forced patch: {commit.patch_file}")
             
             # Console output for visibility
