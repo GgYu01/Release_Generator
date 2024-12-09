@@ -3,8 +3,9 @@ from config.settings import settings, RepositoryInfo, CommitInfo
 from core.manifest_parser import ManifestParser
 from core.git_handler import GitHandler
 from core.patch_manager import PatchManager
+from core.excel_writer import ExcelWriter
 from utils.logger import get_logger
-from utils.common import normalize_tag
+from utils.common import normalize_tag, determine_parent_repos  # Updated import
 from rich.console import Console
 from rich.traceback import install
 import os
@@ -16,6 +17,9 @@ class CommitAnalyzer:
         self.logger = get_logger('CommitAnalyzer')
         self.console = Console()
         self.target_patch_paths: List[str] = []  # Store collected patch file paths
+        self.collected_parent_repos: Set[str] = set()  # Store collected parent repositories
+        # Define commit message patterns and their corresponding parent repositories
+        self.commit_message_patterns: Dict[str, str] = settings.parent_repo_mapping  # 使用配置中的映射关系
 
     def analyze_commits(self, repositories: List[RepositoryInfo]) -> None:
         self.logger.info("Starting commit analysis")
@@ -24,7 +28,7 @@ class CommitAnalyzer:
         # Define prefixes to identify commits to remove
         remove_prefixes: List[str] = ['] thyp-sdk: ', '] nebula-sdk: ', '] tee: ']
         
-        # First pass: collect patch files from commits to remove
+        # First pass: collect patch files and parent repos from commits to remove
         for repo in repositories:
             self.logger.debug(f"Scanning repository: {repo.name}, Path: {repo.path}")
             commits_to_remove: List[CommitInfo] = []
@@ -33,6 +37,11 @@ class CommitAnalyzer:
                     if commit.patch_file:
                         self.target_patch_paths.append(commit.patch_file)
                         self.logger.debug(f"Collected patch: {commit.patch_file} from commit: {commit.commit_id}")
+                    # Analyze commit message to collect parent repos
+                    for pattern, parent_repo in self.commit_message_patterns.items():
+                        if pattern in commit.message:
+                            self.collected_parent_repos.add(parent_repo)
+                            self.logger.debug(f"Collected parent repo '{parent_repo}' from commit: {commit.commit_id}")
                     commits_to_remove.append(commit)
             # Remove the commits from repo.commits
             for commit in commits_to_remove:
@@ -43,23 +52,29 @@ class CommitAnalyzer:
         for repo in repositories:
             self.logger.debug(f"Processing repository for updates: {repo.name}")
             if repo.name in ['grpower', 'nebula'] or (repo.parent and repo.parent in ['grpower', 'nebula']):
-                self._force_update_patches(repo)
-
-    def _force_update_patches(self, repo: RepositoryInfo) -> None:
-        self.logger.info(f"Forcing patch updates for repository: {repo.name}")
+                self._force_update_patches_and_parents(repo)
+        
+    def _force_update_patches_and_parents(self, repo: RepositoryInfo) -> None:
+        self.logger.info(f"Forcing patch and parent repo updates for repository: {repo.name}")
         self.console.log(f"[cyan]Repository: {repo.name}[/cyan]")
 
         # Concatenate collected patch file paths
         concatenated_patches: str = '\n'.join(self.target_patch_paths)
+        # Convert collected parent repos to a list
+        collected_parent_repos_list: List[str] = list(self.collected_parent_repos)
 
         for commit in repo.commits:
-            self.logger.debug(f"Before update - Commit ID: {commit.commit_id}, Current patch: {commit.patch_file}")
+            self.logger.debug(f"Before update - Commit ID: {commit.commit_id}, Current patch: {commit.patch_file}, Current parent_repos: {commit.parent_repos}")
+            # Force update patch_file
             commit.patch_file = concatenated_patches
-            self.logger.debug(f"After update - Commit ID: {commit.commit_id}, Forced patch: {commit.patch_file}")
+            # Force update parent_repos
+            commit.parent_repos = collected_parent_repos_list
+            self.logger.debug(f"After update - Commit ID: {commit.commit_id}, Forced patch: {commit.patch_file}, Forced parent_repos: {commit.parent_repos}")
             
             # Console output for visibility
             self.console.log(f"[yellow]Commit ID: {commit.commit_id}[/yellow]")
             self.console.log(f"[green]Forced patch path: {commit.patch_file}[/green]")
+            self.console.log(f"[green]Forced parent_repos: {', '.join(commit.parent_repos)}[/green]")
 
 def main() -> None:
     install()  # Enable rich traceback
@@ -284,6 +299,18 @@ def main() -> None:
             console.log(f"No manifest found for {repo_config.name}")
             logger.warning(f"No manifest found for {repo_config.name}")
 
+    deletable_substrings = settings.deletable_repos
+    if deletable_substrings:
+        original_count = len(all_repositories_with_commits)
+        all_repositories_with_commits = [
+            repo for repo in all_repositories_with_commits
+            if not any(deletable_substr in repo.path for deletable_substr in deletable_substrings)
+        ]
+        filtered_count = len(all_repositories_with_commits)
+        removed_count = original_count - filtered_count
+        logger.info(f"Removed {removed_count} repositories based on deletable paths")
+        console.log(f"[yellow]Removed {removed_count} repositories based on deletable paths[/yellow]")
+
     commit_analyzer = CommitAnalyzer()
     commit_analyzer.analyze_commits(all_repositories_with_commits)
 
@@ -307,6 +334,12 @@ def main() -> None:
             console.log(f"Commit Message:\n{commit.message}")
             console.log(f"Patch File: {commit.patch_file if commit.patch_file else 'None'}\n")
             logger.debug(f"Commit ID: {commit.commit_id}, Patch File: {commit.patch_file}")
+
+    # Initialize ExcelWriter and write commits to Excel
+    excel_writer = ExcelWriter(settings.excel_output_path)
+    excel_writer.write_commits(all_repositories_with_commits)
+    logger.info("Excel sheet updated with commit information")
+    console.log("[bold green]Excel sheet updated with commit information[/bold green]")
 
     console.log("[bold green]Release Note Generation Completed[/bold green]")
     logger.info("Release Note Generation Completed")

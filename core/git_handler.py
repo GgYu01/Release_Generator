@@ -12,6 +12,12 @@ class GitHandler:
         tags = result.stdout.strip().split('\n')
         return (tags[0], tags[1]) if len(tags) >= 2 else (tags[0], None)
 
+    def get_latest_commit_id(self) -> str:
+        cmd = ['git', 'rev-parse', 'HEAD']
+        result = subprocess.run(cmd, cwd=self.repo_path, stdout=subprocess.PIPE, text=True)
+        commit_id = result.stdout.strip()
+        return commit_id
+
     def get_commit_logs_between_tags(self, old_tag: str, new_tag: str) -> List[Dict[str, str]]:
         cmd = [
             'git', 'log', f'{old_tag}...{new_tag}',
@@ -30,10 +36,6 @@ class GitHandler:
                     message = parts[1].strip()
                     logs.append({'commit_id': commit_id, 'message': message})
         return logs
-
-    def fetch_tags(self) -> None:
-        cmd = ['git', 'fetch', '--tags']
-        subprocess.run(cmd, cwd=self.repo_path)
 
     def get_submodule_paths(self) -> List[str]:
         cmd = ['git', 'submodule', 'foreach', '--quiet', 'echo $path']

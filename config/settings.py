@@ -6,6 +6,7 @@ class CommitInfo:
     commit_id: str
     message: str
     patch_file: Optional[str] = None  # Add patch file path
+    parent_repos: List[str] = field(default_factory=list)  # Add parent repositories
 
 @dataclass
 class RepositoryInfo:
@@ -31,6 +32,24 @@ class Settings:
     api_settings: Dict[str, Any] = field(default_factory=dict)
     log_level: str = 'DEBUG'  # Added log level configuration
     log_file: str = 'release_note_generator.log'  # Added log file configuration
+    # New configurations for Excel writing
+    excel_output_path: str = '/home/nebula/Release_Generator/output.xlsx'
+    parent_repo_mapping: Dict[str, str] = field(default_factory=lambda: {
+        '] thyp-sdk: ': 'nebula-hyper',
+        '] nebula-sdk: ': 'nebula-sdk',
+        '] tee: ': 'TEE',
+        # Add more mappings as needed
+    })
+    deletable_repos: List[str] = field(default_factory=lambda: [
+        'prebuilt/hypervisor/grt'
+    ])  # Updated to store substrings
+    responsible_person_info: str = 'Tester / Modifier / MTK Owner'
+    submission_time_format: str = '%Y-%m-%d %H:%M:%S'
+    porting_status_options: Dict[str, str] = field(default_factory=lambda: {
+        'needs_porting': 'Yes',
+        'porting_done': 'No',
+        'send_to_customer': 'Yes'
+    })
 
     def __post_init__(self):
         self.repositories = [
